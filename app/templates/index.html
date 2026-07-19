@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aether — AI Productivity Agent</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.3/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div class="app-shell">
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">A</div>
+      <div class="brand-text">Aether<span>Productivity Agent</span></div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item active" data-view="dashboard"><i class="fa-solid fa-gauge-high"></i> Dashboard</button>
+      <button class="nav-item" data-view="chat"><i class="fa-solid fa-message"></i> Chat</button>
+      <button class="nav-item" data-view="tasks"><i class="fa-solid fa-list-check"></i> Tasks</button>
+      <button class="nav-item" data-view="notes"><i class="fa-solid fa-note-sticky"></i> Notes</button>
+      <button class="nav-item" data-view="logs"><i class="fa-solid fa-terminal"></i> Execution Logs</button>
+      <button class="nav-item" data-view="settings"><i class="fa-solid fa-gear"></i> Settings</button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="agent-pulse-wrap">
+        <span class="agent-pulse" id="globalPulse"></span>
+        <span class="agent-status-label" id="globalStatusLabel">idle</span>
+      </div>
+      <button class="theme-toggle" id="themeToggle"><i class="fa-solid fa-moon"></i> <span>Dark</span></button>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <main class="main">
+
+    <!-- ---------- DASHBOARD ---------- -->
+    <section class="view active" id="view-dashboard">
+      <div class="page-header">
+        <div>
+          <h1>Dashboard</h1>
+          <p>Your productivity at a glance.</p>
+        </div>
+        <button class="btn btn-primary" data-view-link="chat"><i class="fa-solid fa-sparkles"></i> Ask the agent</button>
+      </div>
+
+      <div class="stat-grid" id="statGrid">
+        <div class="glass stat-card"><span class="label">Total tasks</span><span class="value" id="statTotal">–</span></div>
+        <div class="glass stat-card"><span class="label">Completed</span><span class="value" id="statCompleted">–</span></div>
+        <div class="glass stat-card"><span class="label">Completion rate</span><span class="value" id="statRate">–</span></div>
+        <div class="glass stat-card"><span class="label">Overdue</span><span class="value" id="statOverdue">–</span></div>
+      </div>
+
+      <div class="dash-grid">
+        <div>
+          <div class="glass panel">
+            <h3><i class="fa-solid fa-chart-pie"></i> Tasks by status</h3>
+            <canvas id="statusChart" height="180"></canvas>
+          </div>
+          <div class="glass panel">
+            <h3><i class="fa-solid fa-layer-group"></i> Tasks by priority</h3>
+            <canvas id="priorityChart" height="150"></canvas>
+          </div>
+        </div>
+        <div>
+          <div class="glass panel">
+            <h3><i class="fa-solid fa-bolt"></i> Agent activity</h3>
+            <div class="pipeline-trail" id="dashPipelineTrail"></div>
+            <div class="pipeline-labels" id="dashPipelineLabels"></div>
+            <div id="recentRunsList" style="display:flex;flex-direction:column;gap:10px;font-size:12.5px;"></div>
+          </div>
+          <div class="glass panel">
+            <h3><i class="fa-solid fa-triangle-exclamation"></i> Overdue tasks</h3>
+            <div id="overdueList" style="display:flex;flex-direction:column;gap:8px;font-size:12.5px;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- CHAT ---------- -->
+    <section class="view" id="view-chat">
+      <div class="page-header">
+        <div>
+          <h1>Chat</h1>
+          <p>Talk to your agent — it plans, asks for approval, and executes.</p>
+        </div>
+      </div>
+
+      <div class="chat-layout">
+        <div class="glass chat-panel">
+          <div class="chat-header">
+            <div class="agent-pulse-wrap">
+              <span class="agent-pulse" id="chatPulse"></span>
+              <span class="agent-status-label" id="chatStatusLabel">Idle</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" id="newSessionBtn"><i class="fa-solid fa-rotate"></i> New session</button>
+          </div>
+          <div>
+            <div style="padding:14px 20px 0;">
+              <div class="pipeline-trail" id="chatPipelineTrail"></div>
+              <div class="pipeline-labels" id="chatPipelineLabels"></div>
+            </div>
+          </div>
+          <div class="chat-messages" id="chatMessages"></div>
+          <div class="chat-input-row">
+            <textarea id="chatInput" rows="1" placeholder="e.g. Create a high priority task to review the Q3 report by Friday"></textarea>
+            <button class="send-btn" id="sendBtn"><i class="fa-solid fa-arrow-up"></i></button>
+          </div>
+        </div>
+
+        <div class="side-panel-stack">
+          <div class="glass panel" id="approvalPanelWrap" style="display:none;">
+            <h3><i class="fa-solid fa-shield-halved"></i> Approval requested</h3>
+            <div id="approvalCardHost"></div>
+          </div>
+          <div class="glass panel">
+            <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Try a workflow</h3>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <button class="btn btn-ghost btn-sm" data-prompt="Plan out my day based on my current tasks."><i class="fa-solid fa-calendar-day"></i> Generate today's plan</button>
+              <button class="btn btn-ghost btn-sm" data-prompt="Here are my meeting notes: Ali will design the dashboard UI, due next Tuesday. Ahmed is building the FastAPI backend, due Thursday, high priority. We decided to use FastAPI for the backend and ChromaDB as the vector database. Remind me to follow up with the client next Monday. Extract everything."><i class="fa-solid fa-users"></i> Extract meeting actions</button>
+              <button class="btn btn-ghost btn-sm" data-prompt="Do I have any overdue tasks?"><i class="fa-solid fa-clock-rotate-left"></i> Detect overdue tasks</button>
+            </div>
+          </div>
+          <div class="glass panel">
+            <h3><i class="fa-solid fa-list"></i> Recent tool calls</h3>
+            <div id="chatToolLog" style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-family:var(--font-mono);color:var(--text-dim);"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- TASKS ---------- -->
+    <section class="view" id="view-tasks">
+      <div class="page-header">
+        <div>
+          <h1>Tasks</h1>
+          <p>Everything the agent — and you — have created.</p>
+        </div>
+        <button class="btn btn-primary" id="newTaskBtn"><i class="fa-solid fa-plus"></i> New task</button>
+      </div>
+      <div class="toolbar" id="taskFilters">
+        <button class="filter-pill active" data-status="">All</button>
+        <button class="filter-pill" data-status="pending">Pending</button>
+        <button class="filter-pill" data-status="in_progress">In progress</button>
+        <button class="filter-pill" data-status="completed">Completed</button>
+        <button class="filter-pill" data-status="cancelled">Cancelled</button>
+      </div>
+      <div class="task-grid" id="taskGrid"></div>
+    </section>
+
+    <!-- ---------- NOTES ---------- -->
+    <section class="view" id="view-notes">
+      <div class="page-header">
+        <div>
+          <h1>Notes</h1>
+          <p>Saved notes and meeting captures.</p>
+        </div>
+        <button class="btn btn-primary" id="newNoteBtn"><i class="fa-solid fa-plus"></i> New note</button>
+      </div>
+      <div class="toolbar">
+        <input type="text" id="noteSearch" placeholder="Search notes…" class="glass" style="padding:9px 14px;border:1px solid var(--border);border-radius:999px;font-size:13px;width:260px;background:var(--surface-strong);color:var(--text);">
+      </div>
+      <div class="note-grid" id="noteGrid"></div>
+    </section>
+
+    <!-- ---------- LOGS ---------- -->
+    <section class="view" id="view-logs">
+      <div class="page-header">
+        <div>
+          <h1>Execution Logs</h1>
+          <p>Every agent run, tool call, and outcome.</p>
+        </div>
+        <button class="btn btn-ghost" id="refreshLogsBtn"><i class="fa-solid fa-rotate"></i> Refresh</button>
+      </div>
+      <div class="glass panel" style="overflow-x:auto;">
+        <table class="log-table">
+          <thead>
+            <tr><th>Run</th><th>Request</th><th>Tools used</th><th>Status</th><th>Duration</th><th>Time</th></tr>
+          </thead>
+          <tbody id="logsTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ---------- SETTINGS ---------- -->
+    <section class="view" id="view-settings">
+      <div class="page-header">
+        <div>
+          <h1>Settings</h1>
+          <p>Model and environment configuration.</p>
+        </div>
+      </div>
+      <div class="glass panel" style="max-width:560px;">
+        <h3><i class="fa-solid fa-brain"></i> AI Model</h3>
+        <div class="form-row">
+          <label>Provider</label>
+          <div class="toolbar" id="providerToggle" style="margin-bottom:0;">
+            <button class="filter-pill" data-provider="huggingface"><i class="fa-solid fa-cube"></i> Hugging Face</button>
+            <button class="filter-pill" data-provider="gemini"><i class="fa-solid fa-star"></i> Gemini</button>
+          </div>
+        </div>
+        <div class="form-row" id="hfModelRow">
+          <label>Hugging Face model</label>
+          <select id="hfModelSelect"></select>
+        </div>
+        <div id="providerStatusNote" style="font-size:12px;color:var(--text-faint);margin-top:6px;"></div>
+      </div>
+      <div class="glass panel" style="max-width:560px;">
+        <h3><i class="fa-solid fa-server"></i> Environment</h3>
+        <div id="settingsHealth" style="font-family:var(--font-mono);font-size:12.5px;color:var(--text-dim);line-height:2;"></div>
+        <p style="font-size:12px;color:var(--text-faint);margin-top:10px;">
+          API keys and model options are configured via <code>.env</code> (see <code>.env.example</code>).
+          The provider and Hugging Face model above can be switched anytime without
+          restarting the app, as long as that provider's API key is already set.
+        </p>
+      </div>
+      <div class="glass panel" style="max-width:560px;">
+        <h3><i class="fa-solid fa-shield-halved"></i> Human approval</h3>
+        <p style="font-size:12.5px;color:var(--text-dim);line-height:1.6;">
+          Updating tasks, completing tasks, creating multiple tasks, deleting data,
+          sending email, and creating reminders always pause for your approval before
+          anything is written to the database.
+        </p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+<div id="modalHost"></div>
+
+<script src="/static/js/theme.js"></script>
+<script src="/static/js/app.js"></script>
+<script src="/static/js/chat.js"></script>
+<script src="/static/js/tasks.js"></script>
+<script src="/static/js/notes.js"></script>
+<script src="/static/js/logs.js"></script>
+<script src="/static/js/charts.js"></script>
+<script src="/static/js/settings.js"></script>
+</body>
+</html>
